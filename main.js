@@ -3,7 +3,9 @@ class F1Table {
     this.node = document.getElementById(id)
     this.createForm = this.createForm.bind(this)
     this.createTable = this.createTable.bind(this)
-    this.data = this.getData()
+
+    this.store = {}
+    this.errors = []
 
     this.form = this.createForm()
     this.table = this.createTable()
@@ -13,11 +15,13 @@ class F1Table {
   }
 
   async getData(year = 2018, round = 3) {
-    const response = await axios.get(`https://ergast.com/api/f1/${year}/${round}/driverStandings.json`)
-    let driverStandings = response.data['MRData']['StandingsTable']['StandingsLists'][0]['DriverStandings'];
-    if (response.status === 200)
-      return driverStandings
-    else return response.err
+    if (!this.store[year]) this.store[year] = {}
+    if (!this.store[year][round]) {
+      const response = await axios.get(`https://ergast.com/api/f1/${year}/${round}/driverStandings.json`)
+      if (response.status === 200)
+        this.store[year][round] = response.data['MRData']['StandingsTable']['StandingsLists'][0]['DriverStandings'];
+      else this.errors.push(response.err)
+    }
   }
 
   createForm() {
@@ -60,7 +64,7 @@ class F1Table {
     let year = document.getElementById("input_year").value
     let round = document.getElementById("input_round").value
     await this.getData(year, round)
-      .then((drivers) => {
+      .then(() => {
         this.removeError_box()
         // let start = 0
         // let i = 0
@@ -79,8 +83,9 @@ class F1Table {
         //   `
         //   this.table.appendChild(tableRow)
         // }
+        let drivers = this.store[year][round]
         drivers.forEach(data => {
-          let driver = data['Driver']
+          let driver = data.Driver
           let driverName = `${driver.familyName} ${driver.givenName}`
           let sponsor = data.Constructors[0].name
           const tableRow = document.createElement('tr')
@@ -97,7 +102,6 @@ class F1Table {
       })
       .catch((err) => {
         this.removeError_box()
-        console.log("Error!");
         const error_box = document.createElement("div")
         error_box.className = "error_box"
         error_box.innerText = "Could not get more data. See console for details. You probably reached the end of the data."
